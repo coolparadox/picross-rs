@@ -34,6 +34,48 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn seq0() {
+        assert_eq!(Seq::new(0,1).collect::<Vec<u32>>(), vec![0,1]);
+    }
+
+    #[test]
+    fn seq1() {
+        assert_eq!(Seq::new(3,8).collect::<Vec<u32>>(), vec![3,4,5,6,7,8]);
+    }
+
+    #[test]
+    fn seq2() {
+        assert_eq!(Seq::new(1,0).collect::<Vec<u32>>(), vec![]);
+    }
+
+}
+
+struct Seq {
+    counter: u32,
+    remaining: u32,
+}
+
+impl Seq {
+    pub fn new(from:u32, until:u32) -> Seq {
+        Seq {counter:from, remaining:until.checked_sub(from).unwrap().checked_add(1).unwrap()}
+    }
+}
+
+impl Iterator for Seq {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item>  {
+        if self.remaining == 0 {
+            None
+        } else {
+            let answer = self.counter;
+            self.counter += 1;
+            self.remaining -= 1;
+            Some(answer)
+        }
+    }
 }
 
 /// An iterator that produces all combinations
