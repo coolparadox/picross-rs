@@ -69,9 +69,45 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: len >= 2")]
+    fn xfill0() {
+        Xfill::new(5,1).for_each(drop);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: sum >= len - 2")]
+    fn xfill1() {
+        Xfill::new(1,4).for_each(drop);
+    }
+
+    #[test]
+    fn xfill2() {
+        assert_eq!(
+            Xfill::new(5, 3).collect::<Vec<Vec<u32>>>(),
+            vec![
+                vec![0, 5, 0],
+                vec![0, 4, 1],
+                vec![0, 3, 2],
+                vec![0, 2, 3],
+                vec![0, 1, 4],
+                vec![1, 4, 0],
+                vec![1, 3, 1],
+                vec![1, 2, 2],
+                vec![1, 1, 3],
+                vec![2, 3, 0],
+                vec![2, 2, 1],
+                vec![2, 1, 2],
+                vec![3, 2, 0],
+                vec![3, 1, 1],
+                vec![4, 1, 0],
+            ]
+        );
+    }
 }
 
-/// An iterator that simply counts.
+/// An iterator that simply counts sequentially.
 pub struct Seq {
     counter: u32,
     remaining: u32,
@@ -109,10 +145,7 @@ impl Iterator for Seq {
     }
 }
 
-/// An iterator that produces all combinations
-/// of integer lists of a given size,
-/// with a given sum of elements,
-/// and where elements are no lesser than one.
+/// An iterator for producing special combinations of integer lists.
 pub struct Hfill {
     sum: u32,
     len: u32,
@@ -126,7 +159,7 @@ impl Hfill {
     /// of integer lists of fixed length 'len',
     /// whose sum of elements is 'sum'
     /// and each element is at least 1.
-    fn new(sum: u32, len: u32) -> Hfill {
+    pub fn new(sum: u32, len: u32) -> Hfill {
         Hfill {
             sum,
             len,
@@ -163,6 +196,88 @@ impl Iterator for Hfill {
         } else {
             self.tails = None;
             self.next()
+        }
+    }
+}
+
+/// An iterator for producing special combinations of integer lists.
+pub struct Xfill {
+    sum: u32,
+    len: u32,
+    heads: Seq,
+    head: u32,
+    lasts: Option<Seq>,
+    last: u32,
+    middle: Option<Hfill>,
+}
+
+impl Xfill {
+    /// Constructs an iterator that produces all combinations of integer lists where the number of
+    /// elements is 'len', the sum of elements is 'sum', the first and last elements are equal or
+    /// greater than 0, and the remaining elements are equal or greater than 1.
+    pub fn new(sum: u32, len: u32) -> Xfill {
+        assert!(len >= 2);
+        assert!(sum >= len - 2);
+        let heads = if len == 2 {
+            Seq::new(0, sum)
+        } else {
+            Seq::new(0, sum - (len - 2))
+        };
+        Xfill {
+            sum,
+            len,
+            heads,
+            head: 0,
+            lasts: None,
+            last: 0,
+            middle: None,
+        }
+    }
+}
+
+impl Iterator for Xfill {
+    type Item = Vec<u32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len == 2 {
+            match self.heads.next() {
+                Some(head) => Some(vec![head, self.sum.checked_sub(head).unwrap()]),
+                None => None,
+            }
+        } else if self.lasts.is_none() {
+            match self.heads.next() {
+                Some(head) => {
+                    self.head = head;
+                    self.lasts = Some(Seq::new(0, self.sum - (self.len - 2) - self.head));
+                    self.middle = None;
+                    self.next()
+                }
+                None => None,
+            }
+        } else if self.middle.is_none() {
+            match self.lasts.as_mut().unwrap().next() {
+                Some(last) => {
+                    self.last = last;
+                    self.middle = Some(Hfill::new(self.sum - self.head - self.last, self.len - 2));
+                    self.next()
+                }
+                None => {
+                    self.lasts = None;
+                    self.next()
+                }
+            }
+        } else {
+            match self.middle.as_mut().unwrap().next() {
+                Some(mut middle) => {
+                    middle.insert(0, self.head);
+                    middle.push(self.last);
+                    Some(middle)
+                }
+                None => {
+                    self.middle = None;
+                    self.next()
+                }
+            }
         }
     }
 }
