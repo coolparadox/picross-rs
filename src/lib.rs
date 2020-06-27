@@ -2,6 +2,7 @@
 mod tests {
 
     use super::*;
+    use std::cmp::Ordering;
 
     #[test]
     fn seq0() {
@@ -10,16 +11,11 @@ mod tests {
 
     #[test]
     fn seq1() {
-        assert_eq!(Seq::new(3, 8).collect::<Vec<u32>>(), vec![3, 4, 5, 6, 7, 8]);
-    }
-
-    #[test]
-    fn seq2() {
         assert_eq!(Seq::new(1, 0).collect::<Vec<u32>>(), vec![]);
     }
 
     #[test]
-    fn seq3() {
+    fn seq2() {
         assert_eq!(
             Seq::new(u32::MAX, u32::MAX).collect::<Vec<u32>>(),
             vec![u32::MAX]
@@ -27,7 +23,7 @@ mod tests {
     }
 
     #[test]
-    fn seq4() {
+    fn seq3() {
         assert_eq!(
             Seq {
                 counter: u32::MAX,
@@ -55,54 +51,30 @@ mod tests {
     }
 
     #[test]
-    fn hfill2() {
-        hfill_check(
-            5,
-            3,
-            vec![
-                vec![1, 1, 3],
-                vec![1, 2, 2],
-                vec![1, 3, 1],
-                vec![2, 1, 2],
-                vec![2, 2, 1],
-                vec![3, 1, 1],
-            ],
-        );
-    }
-
-    #[test]
     #[should_panic(expected = "assertion failed: len >= 2")]
     fn xfill0() {
-        Xfill::new(5,1).for_each(drop);
+        Xfill::new(5, 1).for_each(drop);
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: sum >= len - 2")]
     fn xfill1() {
-        Xfill::new(1,4).for_each(drop);
+        Xfill::new(1, 4).for_each(drop);
     }
 
     #[test]
     fn xfill2() {
         assert_eq!(
-            Xfill::new(5, 3).collect::<Vec<Vec<u32>>>(),
-            vec![
-                vec![0, 5, 0],
-                vec![0, 4, 1],
-                vec![0, 3, 2],
-                vec![0, 2, 3],
-                vec![0, 1, 4],
-                vec![1, 4, 0],
-                vec![1, 3, 1],
-                vec![1, 2, 2],
-                vec![1, 1, 3],
-                vec![2, 3, 0],
-                vec![2, 2, 1],
-                vec![2, 1, 2],
-                vec![3, 2, 0],
-                vec![3, 1, 1],
-                vec![4, 1, 0],
-            ]
+            Xfill::new(2, 2).collect::<Vec<Vec<u32>>>(),
+            vec![vec![0, 2], vec![1, 1], vec![2, 0]]
+        );
+    }
+
+    #[test]
+    fn blend0() {
+        assert_eq!(
+            Blend::new(Box::new([1, 2, 3].iter()), Box::new([4].iter())).cmp([1, 4, 2].iter()),
+            Ordering::Equal
         );
     }
 }
@@ -115,6 +87,10 @@ pub struct Seq {
 
 impl Seq {
     /// Constructs an iterator that counts from a given value up to another given value.
+    /// # Example
+    /// ```
+    /// assert_eq!(picross::Seq::new(2,5).collect::<Vec<u32>>(), vec![2,3,4,5]);
+    /// ```
     pub fn new(from: u32, until: u32) -> Seq {
         if until >= from {
             Seq {
@@ -159,6 +135,19 @@ impl Hfill {
     /// of integer lists of fixed length 'len',
     /// whose sum of elements is 'sum'
     /// and each element is at least 1.
+    /// # Example
+    /// ```
+    /// assert_eq!(
+    ///     picross::Hfill::new(5,3).collect::<Vec<Vec<u32>>>(),
+    ///     vec![
+    ///         vec![1, 1, 3],
+    ///         vec![1, 2, 2],
+    ///         vec![1, 3, 1],
+    ///         vec![2, 1, 2],
+    ///         vec![2, 2, 1],
+    ///         vec![3, 1, 1],
+    ///     ]);
+    /// ```
     pub fn new(sum: u32, len: u32) -> Hfill {
         Hfill {
             sum,
@@ -215,6 +204,28 @@ impl Xfill {
     /// Constructs an iterator that produces all combinations of integer lists where the number of
     /// elements is 'len', the sum of elements is 'sum', the first and last elements are equal or
     /// greater than 0, and the remaining elements are equal or greater than 1.
+    /// # Example
+    /// ```
+    /// assert_eq!(
+    ///     picross::Xfill::new(5,3).collect::<Vec<Vec<u32>>>(),
+    ///     vec![
+    ///         vec![0, 5, 0],
+    ///         vec![0, 4, 1],
+    ///         vec![0, 3, 2],
+    ///         vec![0, 2, 3],
+    ///         vec![0, 1, 4],
+    ///         vec![1, 4, 0],
+    ///         vec![1, 3, 1],
+    ///         vec![1, 2, 2],
+    ///         vec![1, 1, 3],
+    ///         vec![2, 3, 0],
+    ///         vec![2, 2, 1],
+    ///         vec![2, 1, 2],
+    ///         vec![3, 2, 0],
+    ///         vec![3, 1, 1],
+    ///         vec![4, 1, 0],
+    ///     ]);
+    /// ```
     pub fn new(sum: u32, len: u32) -> Xfill {
         assert!(len >= 2);
         assert!(sum >= len - 2);
@@ -278,6 +289,51 @@ impl Iterator for Xfill {
                     self.next()
                 }
             }
+        }
+    }
+}
+
+/// An iterator that blends two others.
+pub struct Blend<T> {
+    use_first: bool,
+    iter1: Box<dyn Iterator<Item = T>>,
+    iter2: Box<dyn Iterator<Item = T>>,
+}
+
+impl<T> Blend<T> {
+    /// Constructs and iterator that consumes two others in order to produce outputs, alternating between them until one of them exhausts.
+    /// # Example
+    /// ```
+    /// use std::cmp::Ordering;
+    ///
+    /// let iter1 = Box::new([1,2].iter());
+    /// let iter2 = Box::new([3,4].iter());
+    /// let blended = picross::Blend::new(iter1, iter2);
+    /// assert_eq!(blended.cmp([1,3,2,4].iter()), Ordering::Equal);
+    // ```
+    pub fn new(iter1: Box<dyn Iterator<Item = T>>, iter2: Box<dyn Iterator<Item = T>>) -> Blend<T> {
+        Blend {
+            use_first: true,
+            iter1,
+            iter2,
+        }
+    }
+}
+
+impl<T> Iterator for Blend<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match if self.use_first {
+            self.iter1.next()
+        } else {
+            self.iter2.next()
+        } {
+            Some(answer) => {
+                self.use_first = !self.use_first;
+                Some(answer)
+            }
+            None => None,
         }
     }
 }
