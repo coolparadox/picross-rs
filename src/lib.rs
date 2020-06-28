@@ -322,7 +322,10 @@ pub struct Blend<'a, T> {
 }
 
 impl<'a, T> Blend<'a, T> {
-    fn new(iter1: impl Iterator<Item = T> + 'a, iter2: impl Iterator<Item = T> + 'a) -> Blend<'a, T> {
+    fn new(
+        iter1: impl Iterator<Item = T> + 'a,
+        iter2: impl Iterator<Item = T> + 'a,
+    ) -> Blend<'a, T> {
         Blend {
             use_first: true,
             iter1: Box::new(iter1),
@@ -361,6 +364,51 @@ impl<'a, T> Iterator for Blend<'a, T> {
 /// let blended = picross::blend(iter1, iter2);
 /// assert_eq!(blended.collect::<Vec<i32>>(), vec![1,3,2,4]);
 // ```
-pub fn blend<'a, T:'a>(iter1: impl Iterator<Item = T> + 'a, iter2: impl Iterator<Item = T> + 'a) -> impl Iterator<Item = T> + 'a {
+pub fn blend<'a, T: 'a>(
+    iter1: impl Iterator<Item = T> + 'a,
+    iter2: impl Iterator<Item = T> + 'a,
+) -> impl Iterator<Item = T> + 'a {
     Blend::new(iter1, iter2)
+}
+
+/// All possible combinations of a single picross line or column.
+///
+/// Creates an iterator that produces all gap/fill combinations
+/// for a given list `fills` of how many sequential positions
+/// are filled in a single line or column
+/// with length `len` in a picross puzzle.
+///
+/// Each produced element is a list
+/// where the first element tells how many sequential positions are not filled,
+/// followed by how many sequential positions are filled,
+/// and so on.
+///
+/// # Example
+/// ```
+/// assert_eq!(
+///     picross::fill_combine(vec![2,3], 10).collect::<Vec<Vec<u32>>>(),
+///     vec![
+///         vec![0,2,5,3,0],
+///         vec![0,2,4,3,1],
+///         vec![0,2,3,3,2],
+///         vec![0,2,2,3,3],
+///         vec![0,2,1,3,4],
+///         vec![1,2,4,3,0],
+///         vec![1,2,3,3,1],
+///         vec![1,2,2,3,2],
+///         vec![1,2,1,3,3],
+///         vec![2,2,3,3,0],
+///         vec![2,2,2,3,1],
+///         vec![2,2,1,3,2],
+///         vec![3,2,2,3,0],
+///         vec![3,2,1,3,1],
+///         vec![4,2,1,3,0],
+///     ]
+/// );
+pub fn fill_combine(fills: Vec<u32>, len: u32) -> impl Iterator<Item = Vec<u32>> {
+    xfill(
+        len.checked_sub(fills.iter().sum()).unwrap(),
+        fills.len() as u32 + 1,
+    )
+    .map(move |x| blend(x.into_iter(), fills.clone().into_iter()).collect::<Vec<u32>>())
 }
