@@ -86,12 +86,7 @@ pub struct Seq {
 }
 
 impl Seq {
-    /// Constructs an iterator that counts from a given value up to another given value.
-    /// # Example
-    /// ```
-    /// assert_eq!(picross::Seq::new(2,5).collect::<Vec<u32>>(), vec![2,3,4,5]);
-    /// ```
-    pub fn new(from: u32, until: u32) -> Seq {
+    fn new(from: u32, until: u32) -> Seq {
         if until >= from {
             Seq {
                 counter: from,
@@ -121,6 +116,18 @@ impl Iterator for Seq {
     }
 }
 
+/// Count sequentially.
+///
+/// Creates an iterator that counts from a given value up to another given value.
+///
+/// # Example
+/// ```
+/// assert_eq!(picross::seq(2,5).collect::<Vec<u32>>(), vec![2,3,4,5]);
+/// ```
+pub fn seq(from: u32, until: u32) -> impl Iterator<Item = u32> {
+    Seq::new(from, until)
+}
+
 /// An iterator for producing special combinations of integer lists.
 pub struct Hfill {
     sum: u32,
@@ -131,24 +138,7 @@ pub struct Hfill {
 }
 
 impl Hfill {
-    /// Constructs an iterator that produces all combinations
-    /// of integer lists of fixed length 'len',
-    /// whose sum of elements is 'sum'
-    /// and each element is at least 1.
-    /// # Example
-    /// ```
-    /// assert_eq!(
-    ///     picross::Hfill::new(5,3).collect::<Vec<Vec<u32>>>(),
-    ///     vec![
-    ///         vec![1, 1, 3],
-    ///         vec![1, 2, 2],
-    ///         vec![1, 3, 1],
-    ///         vec![2, 1, 2],
-    ///         vec![2, 2, 1],
-    ///         vec![3, 1, 1],
-    ///     ]);
-    /// ```
-    pub fn new(sum: u32, len: u32) -> Hfill {
+    fn new(sum: u32, len: u32) -> Hfill {
         Hfill {
             sum,
             len,
@@ -189,6 +179,30 @@ impl Iterator for Hfill {
     }
 }
 
+/// Special combinations of integer lists.
+///
+/// Creates an iterator that produces all combinations
+/// of integer lists of fixed length `len`,
+/// whose sum of elements is `sum`
+/// and each element is at least 1.
+///
+/// # Example
+/// ```
+/// assert_eq!(
+///     picross::hfill(5,3).collect::<Vec<Vec<u32>>>(),
+///     vec![
+///         vec![1, 1, 3],
+///         vec![1, 2, 2],
+///         vec![1, 3, 1],
+///         vec![2, 1, 2],
+///         vec![2, 2, 1],
+///         vec![3, 1, 1],
+///     ]);
+/// ```
+pub fn hfill(sum: u32, len: u32) -> impl Iterator<Item = Vec<u32>> {
+    Hfill::new(sum, len)
+}
+
 /// An iterator for producing special combinations of integer lists.
 pub struct Xfill {
     sum: u32,
@@ -201,32 +215,7 @@ pub struct Xfill {
 }
 
 impl Xfill {
-    /// Constructs an iterator that produces all combinations of integer lists where the number of
-    /// elements is 'len', the sum of elements is 'sum', the first and last elements are equal or
-    /// greater than 0, and the remaining elements are equal or greater than 1.
-    /// # Example
-    /// ```
-    /// assert_eq!(
-    ///     picross::Xfill::new(5,3).collect::<Vec<Vec<u32>>>(),
-    ///     vec![
-    ///         vec![0, 5, 0],
-    ///         vec![0, 4, 1],
-    ///         vec![0, 3, 2],
-    ///         vec![0, 2, 3],
-    ///         vec![0, 1, 4],
-    ///         vec![1, 4, 0],
-    ///         vec![1, 3, 1],
-    ///         vec![1, 2, 2],
-    ///         vec![1, 1, 3],
-    ///         vec![2, 3, 0],
-    ///         vec![2, 2, 1],
-    ///         vec![2, 1, 2],
-    ///         vec![3, 2, 0],
-    ///         vec![3, 1, 1],
-    ///         vec![4, 1, 0],
-    ///     ]);
-    /// ```
-    pub fn new(sum: u32, len: u32) -> Xfill {
+    fn new(sum: u32, len: u32) -> Xfill {
         assert!(len >= 2);
         assert!(sum >= len - 2);
         let heads = if len == 2 {
@@ -293,34 +282,56 @@ impl Iterator for Xfill {
     }
 }
 
-/// An iterator that blends two others.
-pub struct Blend<T> {
-    use_first: bool,
-    iter1: Box<dyn Iterator<Item = T>>,
-    iter2: Box<dyn Iterator<Item = T>>,
+/// Special combinations of integer lists.
+///
+/// Creates an iterator that produces all combinations of integer lists where the number of
+/// elements is `len`, the sum of elements is `sum`, the first and last elements are equal or
+/// greater than 0, and the remaining elements are equal or greater than 1.
+///
+/// # Example
+/// ```
+/// assert_eq!(
+///     picross::xfill(5,3).collect::<Vec<Vec<u32>>>(),
+///     vec![
+///         vec![0, 5, 0],
+///         vec![0, 4, 1],
+///         vec![0, 3, 2],
+///         vec![0, 2, 3],
+///         vec![0, 1, 4],
+///         vec![1, 4, 0],
+///         vec![1, 3, 1],
+///         vec![1, 2, 2],
+///         vec![1, 1, 3],
+///         vec![2, 3, 0],
+///         vec![2, 2, 1],
+///         vec![2, 1, 2],
+///         vec![3, 2, 0],
+///         vec![3, 1, 1],
+///         vec![4, 1, 0],
+///     ]);
+/// ```
+pub fn xfill(sum: u32, len: u32) -> impl Iterator<Item = Vec<u32>> {
+    Xfill::new(sum, len)
 }
 
-impl<T> Blend<T> {
-    /// Constructs and iterator that consumes two others in order to produce outputs, alternating between them until one of them exhausts.
-    /// # Example
-    /// ```
-    /// use std::cmp::Ordering;
-    ///
-    /// let iter1 = Box::new([1,2].iter());
-    /// let iter2 = Box::new([3,4].iter());
-    /// let blended = picross::Blend::new(iter1, iter2);
-    /// assert_eq!(blended.cmp([1,3,2,4].iter()), Ordering::Equal);
-    // ```
-    pub fn new(iter1: Box<dyn Iterator<Item = T>>, iter2: Box<dyn Iterator<Item = T>>) -> Blend<T> {
+/// An iterator that blends two others.
+pub struct Blend<'a, T> {
+    use_first: bool,
+    iter1: Box<dyn Iterator<Item = T> + 'a>,
+    iter2: Box<dyn Iterator<Item = T> + 'a>,
+}
+
+impl<'a, T> Blend<'a, T> {
+    fn new(iter1: impl Iterator<Item = T> + 'a, iter2: impl Iterator<Item = T> + 'a) -> Blend<'a, T> {
         Blend {
             use_first: true,
-            iter1,
-            iter2,
+            iter1: Box::new(iter1),
+            iter2: Box::new(iter2),
         }
     }
 }
 
-impl<T> Iterator for Blend<T> {
+impl<'a, T> Iterator for Blend<'a, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -336,4 +347,20 @@ impl<T> Iterator for Blend<T> {
             None => None,
         }
     }
+}
+
+/// Blend two iterators.
+///
+/// Creates an iterator that consumes two others in order to produce outputs,
+/// alternating between each one until one of them exhausts.
+///
+/// # Example
+/// ```
+/// let iter1 = vec![1,2].into_iter();
+/// let iter2 = vec![3,4].into_iter();
+/// let blended = picross::blend(iter1, iter2);
+/// assert_eq!(blended.collect::<Vec<i32>>(), vec![1,3,2,4]);
+// ```
+pub fn blend<'a, T:'a>(iter1: impl Iterator<Item = T> + 'a, iter2: impl Iterator<Item = T> + 'a) -> impl Iterator<Item = T> + 'a {
+    Blend::new(iter1, iter2)
 }
